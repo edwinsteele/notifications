@@ -1,5 +1,9 @@
 # Configuration
 conf.py
+
+# PyCharm
+.idea
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

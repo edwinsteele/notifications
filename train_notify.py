@@ -132,6 +132,7 @@ def extract_trip(j, trip_id):
     return t
 
 
+
 if __name__ == "__main__":
     r = requests.get(BASE_URL % (conf.ROUTES,))
     j = r.json()
