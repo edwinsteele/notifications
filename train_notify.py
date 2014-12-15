@@ -1,10 +1,13 @@
 import argparse
 from datetime import datetime, timedelta
 import itertools
+import logging
 import requests
 import conf
+import notifier
 
 BASE_URL = "http://realtime.grofsoft.com/tripview/realtime?routes=%s&type=dtva"
+DEFAULT_LATENESS_THRESHOLD_MINS = 5
 
 
 class Trip(object):
@@ -63,6 +66,10 @@ class Trip(object):
             return "%sm early" % (abs(estimated_delay),)
         else:
             return "on-time"
+
+    def is_running_late(self, lateness_threshold_mins):
+        return self.estimate_delay_at_boarding_station() > \
+            lateness_threshold_mins
 
     def short_summary(self):
         if not (self.is_current() and self.arrives_in_departure_window()):
@@ -152,13 +159,13 @@ def extract_trip(j, trip_id, fdt, ldt):
     return t
 
 
-def main(fdt, ldt):
+def main(fdt, ldt, lateness_threshold_mins, is_dry_run):
     r = requests.get(BASE_URL % (conf.ROUTES,))
     j = r.json()
 
-    print "Retrieved at: %s" % \
-          (datetime.fromtimestamp(j["timestamp"]).ctime(),)
-    print "Looking for arrivals between %s and %s" % (fdt, ldt)
+    logging.debug("Retrieved at: %s",
+                  datetime.fromtimestamp(j["timestamp"]).ctime())
+    logging.debug("Looking for arrivals between %s and %s", fdt, ldt)
 
     # Save the realtime data for troubleshooting and verification
     with open("/Users/esteele/realtime.json", "w") as f:
@@ -173,18 +180,47 @@ def main(fdt, ldt):
                    if v["route"] == conf.ROUTES]:
         trips.append(extract_trip(j, tripId, fdt, ldt))
 
-    print "--- Short summary start ---"
+    notification_lines = []
+    short_summary_lines = []
+    full_summary_lines = []
     for t in trips:
         if t.is_current() and t.arrives_in_departure_window():
-            print t.short_summary()
-    print "--- Short summary end ---"
-    for t in trips:
-        print t.full_summary()
+            if t.is_running_late(lateness_threshold_mins):
+                notification_lines.append(t.short_summary())
+            short_summary_lines.append(t.short_summary())
+            full_summary_lines.append(t.full_summary())
+        else:
+            full_summary_lines.append(t.full_summary())
+
+    notification_subject = "Title: %s train(s) running late" % \
+                           (len(notification_lines),)
+    notification_lines.append("Retrieved at: %s" %
+                              (datetime.fromtimestamp(j["timestamp"]).ctime(),))
+    notification_message = "\n".join(notification_lines)
+    if is_dry_run:
+        print "--- Notification DRY RUN---"
+        print notification_subject
+        print notification_message
+    else:
+        logging.info("Sending pushover notification")
+        request = notifier.send_pushover_notification(notification_message,
+                                                      notification_subject)
+        logging.info("Request is %s", request)
+    print "--- Short summary start ---"
+    print "\n".join(short_summary_lines)
+    print "--- Full summary start ---"
+    print "\n".join(full_summary_lines)
+    print "Retrieved at: %s" % \
+          (datetime.fromtimestamp(j["timestamp"]).ctime(),)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--first_departure_time")
     parser.add_argument("--last_departure_time")
+    parser.add_argument("--lateness_threshold")
+    parser.add_argument("--dry_run", action="store_true", default=False)
+    parser.add_argument("--verbose")
     args = parser.parse_args()
     if args.first_departure_time:
         first_departure_time = \
@@ -196,5 +232,16 @@ if __name__ == "__main__":
             hhmm_string_to_timedelta(args.last_departure_time)
     else:
         last_departure_time = now_as_timedelta() + timedelta(minutes=60)
+    if args.lateness_threshold:
+        lateness_threshold_mins = args.lateness_threshold
+    else:
+        lateness_threshold_mins = DEFAULT_LATENESS_THRESHOLD_MINS
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
-    main(first_departure_time, last_departure_time)
+    main(first_departure_time,
+         last_departure_time,
+         lateness_threshold_mins,
+         args.dry_run)
