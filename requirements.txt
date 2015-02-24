@@ -1,3 +1,4 @@
-requests
-python-pushover
-
+phue==0.8
+python-pushover==0.2
+requests==2.5.0
+wsgiref==0.1.2

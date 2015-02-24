@@ -205,12 +205,16 @@ def main(fdt, ldt, lateness_threshold_mins, is_dry_run):
         logging.info(notification_message)
     else:
         if trains_are_running_late:
-            logging.info("Sending pushover notification")
+            logging.info("Sending pushover notification. Subject: %s",
+                         notification_subject)
+            logging.info("Notification message: %s", notification_message)
             request = notifier.send_pushover_notification(notification_message,
                                                           notification_subject)
             logging.info("Request is %s", request)
         else:
             logging.info("Not sending pushover notification - all on time")
+
+    notifier.set_lamp_state(trains_are_running_late)
 
     mail_subject = notification_subject
     mail_message = "\n".join(notification_lines)
