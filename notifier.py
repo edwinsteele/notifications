@@ -10,5 +10,3 @@ def send_pushover_notification(message, title):
 
 
 
-
-

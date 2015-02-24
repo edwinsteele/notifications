@@ -183,9 +183,11 @@ def main(fdt, ldt, lateness_threshold_mins, is_dry_run):
     notification_lines = []
     short_summary_lines = []
     full_summary_lines = []
+    trains_are_running_late = False
     for t in trips:
         if t.is_current() and t.arrives_in_departure_window():
             if t.is_running_late(lateness_threshold_mins):
+                trains_are_running_late = True
                 notification_lines.append(t.short_summary())
             short_summary_lines.append(t.short_summary())
             full_summary_lines.append(t.full_summary())
@@ -198,20 +200,27 @@ def main(fdt, ldt, lateness_threshold_mins, is_dry_run):
                               (datetime.fromtimestamp(j["timestamp"]).ctime(),))
     notification_message = "\n".join(notification_lines)
     if is_dry_run:
-        print "--- Notification DRY RUN---"
-        print notification_subject
-        print notification_message
+        logging.info("--- Notification DRY RUN---")
+        logging.info(notification_subject)
+        logging.info(notification_message)
     else:
-        logging.info("Sending pushover notification")
-        request = notifier.send_pushover_notification(notification_message,
-                                                      notification_subject)
-        logging.info("Request is %s", request)
-    print "--- Short summary start ---"
-    print "\n".join(short_summary_lines)
-    print "--- Full summary start ---"
-    print "\n".join(full_summary_lines)
-    print "Retrieved at: %s" % \
-          (datetime.fromtimestamp(j["timestamp"]).ctime(),)
+        if trains_are_running_late:
+            logging.info("Sending pushover notification")
+            request = notifier.send_pushover_notification(notification_message,
+                                                          notification_subject)
+            logging.info("Request is %s", request)
+        else:
+            logging.info("Not sending pushover notification - all on time")
+
+    mail_subject = notification_subject
+    mail_message = "\n".join(notification_lines)
+    mail_message += "--- Short summary start ---"
+    mail_message += "\n".join(short_summary_lines)
+    mail_message += "--- Full summary start ---"
+    mail_message += "\n".join(full_summary_lines)
+    mail_message += "Retrieved at: %s" % \
+        (datetime.fromtimestamp(j["timestamp"]).ctime(),)
+    logging.info("Mail message is: %s", mail_message)
 
 
 if __name__ == "__main__":
