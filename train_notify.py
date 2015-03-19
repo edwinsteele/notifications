@@ -89,7 +89,7 @@ class Trip(object):
     def full_summary(self):
         s = ""
         if not self.arrives_in_departure_window():
-            s += "[Out Of Schedule] "
+            s += "[Arrives outside departure window] "
         if not self.is_current():
             s += "[In the past] "
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.WARN)
 
     main(first_departure_time,
          last_departure_time,
