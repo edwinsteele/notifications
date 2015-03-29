@@ -237,8 +237,8 @@ def main(fdt, ldt, lateness_threshold_mins, send_notification, no_lights):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--first_departure_time")
-    parser.add_argument("--last_departure_time")
+    parser.add_argument("--first_departure_time", help="as hh:mm")
+    parser.add_argument("--last_departure_time", help="as hh:mm")
     parser.add_argument("--lateness_threshold_mins", type=int,
                         default=DEFAULT_LATENESS_THRESHOLD_MINS)
     parser.add_argument("--send-notification", default=SEND_NOTIFICATION_AUTO,
@@ -246,7 +246,7 @@ if __name__ == "__main__":
                                  SEND_NOTIFICATION_AUTO,
                                  SEND_NOTIFICATION_NEVER])
     parser.add_argument("--no_lights", action="store_true", default=False)
-    parser.add_argument("--verbose", action="store_true", default=False)
+    parser.add_argument("--verbose", "-v", action="count")
     args = parser.parse_args()
     if args.first_departure_time:
         first_departure_time = \
@@ -258,10 +258,12 @@ if __name__ == "__main__":
             hhmm_string_to_timedelta(args.last_departure_time)
     else:
         last_departure_time = now_as_timedelta() + timedelta(minutes=60)
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
+    if args.verbose is None:
+        logging.basicConfig(level=logging.WARNING)
+    elif args.verbose == 1:
         logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(level=logging.DEBUG)
 
     main(first_departure_time,
          last_departure_time,
