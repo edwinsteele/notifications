@@ -7,7 +7,7 @@ import conf
 import notifier
 
 BASE_URL = "http://realtime.grofsoft.com/tripview/realtime?routes=%s&type=dtva"
-DEFAULT_LATENESS_THRESHOLD_MINS = 2
+DEFAULT_LATENESS_THRESHOLD_MINS = 5
 SEND_NOTIFICATION_ALWAYS = "always"
 SEND_NOTIFICATION_AUTO = "auto"
 SEND_NOTIFICATION_NEVER = "never"
@@ -71,7 +71,7 @@ class Trip(object):
             return "on-time"
 
     def is_running_late(self, lateness_threshold_mins):
-        return self.estimate_delay_at_boarding_station() > \
+        return self.estimate_delay_at_boarding_station() >= \
             lateness_threshold_mins
 
     def short_summary(self):
@@ -168,12 +168,11 @@ def main(fdt, ldt, lateness_threshold_mins, send_notification, no_lights):
 
     logging.debug("Retrieved at: %s",
                   datetime.fromtimestamp(j["timestamp"]).ctime())
-    logging.debug("Looking for arrivals between %s and %s", fdt, ldt)
-
     # Save the realtime data for troubleshooting and verification
-    with open("/Users/esteele/realtime.json", "w") as f:
-        f.write(r.text)
+    logging.debug("JSON data follows:")
+    logging.debug(r.text)
 
+    logging.debug("Looking for arrivals between %s and %s", fdt, ldt)
     # Trains only appear in the vehicles list once they have actually departed.
     # Trains that are past their departure time ("start") but have not left
     #  their origin are not listed in vehicles until they've actually left
@@ -240,7 +239,9 @@ if __name__ == "__main__":
     parser.add_argument("--first_departure_time", help="as hh:mm")
     parser.add_argument("--last_departure_time", help="as hh:mm")
     parser.add_argument("--lateness_threshold_mins", type=int,
-                        default=DEFAULT_LATENESS_THRESHOLD_MINS)
+                        default=DEFAULT_LATENESS_THRESHOLD_MINS,
+                        help="Trains delayed by more than or equal to this "
+                             "number of minutes are deemed late")
     parser.add_argument("--send-notification", default=SEND_NOTIFICATION_AUTO,
                         choices=[SEND_NOTIFICATION_ALWAYS,
                                  SEND_NOTIFICATION_AUTO,
