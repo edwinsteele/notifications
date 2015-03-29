@@ -226,8 +226,6 @@ def main(fdt, ldt, lateness_threshold_mins, send_notification, no_lights):
     else:
         logging.debug("Not turning on lights because --no_lights cmdline param")
 
-    logging.debug("Retrieved at: %s" %
-                  (datetime.fromtimestamp(j["timestamp"]).ctime(),))
     logging.debug("--- Short summary start ---")
     logging.debug(short_summary_lines)
     logging.debug("--- Full summary start ---")
@@ -259,12 +257,16 @@ if __name__ == "__main__":
             hhmm_string_to_timedelta(args.last_departure_time)
     else:
         last_departure_time = now_as_timedelta() + timedelta(minutes=60)
+
+    # Optionally log to disk instead of stdout
+    logfile = getattr(conf, "LOGFILE", None)
+
     if args.verbose is None:
-        logging.basicConfig(level=logging.WARNING)
+        logging.basicConfig(level=logging.WARNING, filename=logfile)
     elif args.verbose == 1:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, filename=logfile)
     else:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, filename=logfile)
 
     main(first_departure_time,
          last_departure_time,
