@@ -7,7 +7,10 @@ import conf
 import notifier
 
 BASE_URL = "http://realtime.grofsoft.com/tripview/realtime?routes=%s&type=dtva"
-DEFAULT_LATENESS_THRESHOLD_MINS = 5
+DEFAULT_LATENESS_THRESHOLD_MINS = 2
+SEND_NOTIFICATION_ALWAYS = "always"
+SEND_NOTIFICATION_AUTO = "auto"
+SEND_NOTIFICATION_NEVER = "never"
 
 
 class Trip(object):
@@ -159,7 +162,7 @@ def extract_trip(j, trip_id, fdt, ldt):
     return t
 
 
-def main(fdt, ldt, lateness_threshold_mins, is_dry_run):
+def main(fdt, ldt, lateness_threshold_mins, send_notification, no_lights):
     r = requests.get(BASE_URL % (conf.ROUTES,))
     j = r.json()
 
@@ -194,46 +197,56 @@ def main(fdt, ldt, lateness_threshold_mins, is_dry_run):
         else:
             full_summary_lines.append(t.full_summary())
 
-    notification_subject = "Title: %s train(s) running late" % \
-                           (len(notification_lines),)
+    if len(notification_lines) == 0:
+        notification_subject = "All trains on time"
+    elif len(notification_lines) == 1:
+        notification_subject = "1 train running late"
+    else:
+        notification_subject = "%s trains running late" % \
+                               (len(notification_lines),)
+
+    logging.info(notification_subject)
     notification_lines.append("Retrieved at: %s" %
                               (datetime.fromtimestamp(j["timestamp"]).ctime(),))
     notification_message = "\n".join(notification_lines)
-    if is_dry_run:
-        logging.info("--- Notification DRY RUN---")
-        logging.info(notification_subject)
-        logging.info(notification_message)
+
+    if send_notification == SEND_NOTIFICATION_ALWAYS or \
+            (send_notification != SEND_NOTIFICATION_NEVER and
+             trains_are_running_late):
+        logging.info("Sending pushover notification. Subject: %s",
+                     notification_subject)
+        logging.info("Notification message: %s", notification_message)
+        request = notifier.send_pushover_notification(notification_message,
+                                                      notification_subject)
+        logging.debug("Request is %s", request)
     else:
-        if trains_are_running_late:
-            logging.info("Sending pushover notification. Subject: %s",
-                         notification_subject)
-            logging.info("Notification message: %s", notification_message)
-            request = notifier.send_pushover_notification(notification_message,
-                                                          notification_subject)
-            logging.info("Request is %s", request)
-        else:
-            logging.info("Not sending pushover notification - all on time")
+        logging.info("Not sending pushover notification")
 
-    notifier.set_lamp_state(trains_are_running_late)
+    if not no_lights:
+        notifier.set_lamp_state(trains_are_running_late)
+    else:
+        logging.debug("Not turning on lights because --no_lights cmdline param")
 
-    mail_subject = notification_subject
-    mail_message = "\n".join(notification_lines)
-    mail_message += "--- Short summary start ---"
-    mail_message += "\n".join(short_summary_lines)
-    mail_message += "--- Full summary start ---"
-    mail_message += "\n".join(full_summary_lines)
-    mail_message += "Retrieved at: %s" % \
-        (datetime.fromtimestamp(j["timestamp"]).ctime(),)
-    logging.info("Mail message is: %s", mail_message)
+    logging.debug("Retrieved at: %s" %
+                  (datetime.fromtimestamp(j["timestamp"]).ctime(),))
+    logging.debug("--- Short summary start ---")
+    logging.debug(short_summary_lines)
+    logging.debug("--- Full summary start ---")
+    logging.debug(full_summary_lines)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--first_departure_time")
     parser.add_argument("--last_departure_time")
-    parser.add_argument("--lateness_threshold")
-    parser.add_argument("--dry_run", action="store_true", default=False)
-    parser.add_argument("--verbose")
+    parser.add_argument("--lateness_threshold_mins", type=int,
+                        default=DEFAULT_LATENESS_THRESHOLD_MINS)
+    parser.add_argument("--send-notification", default=SEND_NOTIFICATION_AUTO,
+                        choices=[SEND_NOTIFICATION_ALWAYS,
+                                 SEND_NOTIFICATION_AUTO,
+                                 SEND_NOTIFICATION_NEVER])
+    parser.add_argument("--no_lights", action="store_true", default=False)
+    parser.add_argument("--verbose", action="store_true", default=False)
     args = parser.parse_args()
     if args.first_departure_time:
         first_departure_time = \
@@ -245,16 +258,13 @@ if __name__ == "__main__":
             hhmm_string_to_timedelta(args.last_departure_time)
     else:
         last_departure_time = now_as_timedelta() + timedelta(minutes=60)
-    if args.lateness_threshold:
-        lateness_threshold_mins = args.lateness_threshold
-    else:
-        lateness_threshold_mins = DEFAULT_LATENESS_THRESHOLD_MINS
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
-        logging.basicConfig(level=logging.WARN)
+        logging.basicConfig(level=logging.INFO)
 
     main(first_departure_time,
          last_departure_time,
-         lateness_threshold_mins,
-         args.dry_run)
+         args.lateness_threshold_mins,
+         args.send_notification,
+         args.no_lights)
