@@ -23,7 +23,7 @@ class ContactingThread(threading.Thread):
             # Redirect stderr - we don't want spammage if the host is
             #  uncontactable
             output = subprocess.check_output(
-                ["ping", "-c", str(self.ping_count), self.ip_address],
+                ["ping", "-c", str(self.ping_count), "-o", self.ip_address],
                 stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError:
             # Unable to ping, possibly because there's no route or
@@ -45,11 +45,21 @@ def locate(host_tuples, ping_period):
         thread_list.append(t)
         t.start()
 
-    for t in thread_list:
-        t.join()
+    # first thread to complete with a value other than NOT_FOUND is the one
+    #  that has most current location information, so that's the one we care
+    #  about.
+    # There'll always be a main thread, so we look for active_count > 1
+    location = ContactingThread.NOT_FOUND
+    while threading.active_count() > 1 and \
+            location == ContactingThread.NOT_FOUND:
+        for t in thread_list:
+            t.join(timeout=1.0)
+            if not t.is_alive():
+                # Thread just came back with location information
+                print "Thread %s provided location %s" % (t, t.result)
+                location = t.result
 
-    return sorted([t.result for t in thread_list
-                   if t.result is not t.NOT_FOUND])
+    return location
 
 
 def report_location_changes(host_tuples, ping_period):
@@ -63,20 +73,22 @@ def report_location_changes(host_tuples, ping_period):
             #  should just throttle ourselves and wait before trying again.
             throttle_period_secs = \
                 conf.LOCATION_PING_PERIOD_SECS - current_check_duration
-            print "Ping failed fast - throttling for %.1f secs" %\
+            print "Ping completed quickly - throttling for %.1f secs" %\
                   (throttle_period_secs,)
             time.sleep(throttle_period_secs)
 
-        if last_location:
+        if last_location != ContactingThread.NOT_FOUND:
             print "Device was located in %s" % (last_location,),
             if last_location == current_location:
                 print "and is still there"
             else:
-                print "but moved to %s" % (current_location,)
+                if last_location != ContactingThread.NOT_FOUND:
+                    print "but became inaccessible"
+                else:
+                    print "but moved to %s" % (current_location,)
         else:
-            print "Device was not accessible",
-            if current_location:
-                # FIXME - nicely say when it's been in > 1 place
+            print "Device was inaccessible",
+            if current_location != ContactingThread.NOT_FOUND:
                 print "but is now located in %s" % (current_location,)
             else:
                 print "and is still inaccessible"
