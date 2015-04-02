@@ -28,14 +28,23 @@ class Trip(object):
 
     def populate_estimated_arrival_times(self):
         start_time = self.start_time_timedelta
-        # If we can't find a transit time, return results that have not
-        #  chance of being in the schedule. Subtract 1 from max so we can
-        #  attempt to perform usual calculations without overflow
-        min_transit, max_transit = conf.transit_times.get(
-            self.start_loc_str,
-            (timedelta.min, timedelta.max - timedelta(days=1)))
-        self.est_scheduled_arrival_earliest = start_time + min_transit
-        self.est_scheduled_arrival_latest = start_time + max_transit
+        if start_time == timedelta.max:
+            # There was no delay data available for the vehicle when the
+            #  trip was created which should only occur when the train has
+            #  actually arrived at its destination, and in this case we don't
+            #  care about arrival times.
+            self.est_scheduled_arrival_earliest = timedelta.max
+            self.est_scheduled_arrival_latest = timedelta.max
+
+        if self.start_loc_str in conf.transit_times:
+            min_transit, max_transit = conf.transit_times[self.start_loc_str]
+            self.est_scheduled_arrival_earliest = start_time + min_transit
+            self.est_scheduled_arrival_latest = start_time + max_transit
+        else:
+            # If we can't find a transit time, return results that have no
+            #  chance of being in the schedule.
+            self.est_scheduled_arrival_earliest = timedelta.max
+            self.est_scheduled_arrival_latest = timedelta.max
 
     def is_current(self):
         """Arrives at departure station in the future"""
