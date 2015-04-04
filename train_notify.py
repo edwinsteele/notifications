@@ -4,6 +4,7 @@ import itertools
 import logging
 import requests
 import conf
+import locator
 import notifier
 
 BASE_URL = "http://realtime.grofsoft.com/tripview/realtime?routes=%s&type=dtva"
@@ -218,9 +219,13 @@ def main(fdt, ldt, lateness_threshold_mins, send_notification, no_lights):
                               (datetime.fromtimestamp(j["timestamp"]).ctime(),))
     notification_message = "\n".join(notification_lines)
 
+    notification_device_location = locator.locate(
+        conf.ADDRESS_NAME_PAIR_LISTS,
+        conf.LOCATION_PING_PERIOD_SECS)
     if send_notification == SEND_NOTIFICATION_ALWAYS or \
             (send_notification != SEND_NOTIFICATION_NEVER and
-             trains_are_running_late):
+             trains_are_running_late and
+             notification_device_location in conf.NOTIFICATION_LOCATIONS):
         logging.info("Sending pushover notification. Subject: %s",
                      notification_subject)
         logging.info("Notification message: %s", notification_message)
