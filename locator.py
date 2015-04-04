@@ -44,6 +44,10 @@ def locate(host_tuples, ping_period):
     for ip, loc_name in host_tuples:
         t = ContactingThread(ip, loc_name, ping_period)
         thread_list.append(t)
+        # So we don't need to wait for all to finish. There aren't any
+        #  sensitive resources in use by the thread, so abrupt termination
+        #  isn't a problem.
+        t.daemon = True
         t.start()
 
     # first thread to complete with a value other than NOT_FOUND is the one
