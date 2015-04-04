@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 
@@ -56,9 +57,11 @@ def locate(host_tuples, ping_period):
             t.join(timeout=1.0)
             if not t.is_alive():
                 # Thread just came back with location information
-                print "Thread %s provided location %s" % (t, t.result)
+                logging.debug("Thread %s (looking for %s) provided location %s",
+                              t, t.ip_address, t.result)
                 location = t.result
 
+    logging.info("Location is %s", location)
     return location
 
 
@@ -73,26 +76,28 @@ def report_location_changes(host_tuples, ping_period):
             #  should just throttle ourselves and wait before trying again.
             throttle_period_secs = \
                 conf.LOCATION_PING_PERIOD_SECS - current_check_duration
-            print "Ping completed quickly - throttling for %.1f secs" %\
-                  (throttle_period_secs,)
+            logging.debug("Ping completed quickly - throttling for %.1f secs",
+                          throttle_period_secs)
             time.sleep(throttle_period_secs)
 
+        location_msg = ""
         if last_location != ContactingThread.NOT_FOUND:
-            print "Device was located in %s" % (last_location,),
+            location_msg += "Device was located in %s " % (last_location,)
             if last_location == current_location:
-                print "and is still there"
+                location_msg += "and is still there"
             else:
                 if last_location != ContactingThread.NOT_FOUND:
-                    print "but became inaccessible"
+                    location_msg += "but became inaccessible"
                 else:
-                    print "but moved to %s" % (current_location,)
+                    location_msg += "but moved to %s" % (current_location,)
         else:
-            print "Device was inaccessible",
+            location_msg += "Device was inaccessible "
             if current_location != ContactingThread.NOT_FOUND:
-                print "but is now located in %s" % (current_location,)
+                location_msg += "but is now located in %s" % (current_location,)
             else:
-                print "and is still inaccessible"
+                location_msg += "and is still inaccessible"
 
+        logging.info(location_msg)
         last_location = current_location
 
 
@@ -102,5 +107,6 @@ def report_location_changes(host_tuples, ping_period):
 if __name__ == "__main__":
     # print is_contactable("localhost", 2)
     # print locate(conf.ADDRESS_NAME_PAIR_LISTS, conf.LOCATION_PING_PERIOD_SECS)
-    print report_location_changes(
+    logging.basicConfig(level=logging.INFO)
+    report_location_changes(
         conf.ADDRESS_NAME_PAIR_LISTS, conf.LOCATION_PING_PERIOD_SECS)
