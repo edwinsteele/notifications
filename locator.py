@@ -5,7 +5,7 @@ import time
 __author__ = 'esteele'
 import conf
 import re
-import subprocess
+import subprocess32 as subprocess
 import multiprocessing
 
 
@@ -24,7 +24,7 @@ class ContactingThread(threading.Thread):
             # Redirect stderr - we don't want spammage if the host is
             #  uncontactable
             output = subprocess.check_output(
-                ["ping", "-c", str(self.ping_count), "-o", self.ip_address],
+                ["/sbin/ping", "-c", str(self.ping_count), "-o", self.ip_address],
                 stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError:
             # Unable to ping, possibly because there's no route or
