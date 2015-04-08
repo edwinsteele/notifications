@@ -5,6 +5,29 @@ import xml.etree.ElementTree as ET
 import io
 
 
+def get_min_temp_phrase_from_values(min_observed, min_forecast):
+    if abs(min_forecast) != 1:
+        degrees_text = "degrees"
+    else:
+        degrees_text = "degree"
+    s = "The temperature tonight will be %s %s, " % (min_forecast, degrees_text)
+    degrees_warmer_tonight = min_forecast - min_observed
+    if abs(degrees_warmer_tonight) > 1:
+        degrees_text = "degrees"
+    else:
+        degrees_text = "degree"
+
+    if degrees_warmer_tonight == 0:
+        s += "which is the same as last night"
+    elif degrees_warmer_tonight > 0:
+        s += "which is %s %s warmer than last night" % \
+             (abs(degrees_warmer_tonight), degrees_text)
+    else:
+        s += "which is %s %s cooler than last night" % \
+             (abs(degrees_warmer_tonight), degrees_text)
+    return s
+
+
 def get_min_observed_and_forecasted(bom_obs_url, bom_forecast_url, bom_forecast_area):
     # BOM observation data is available for several weather stations, and
     #  in several formats (including the JSON that we use here).
@@ -33,9 +56,8 @@ def get_min_observed_and_forecasted(bom_obs_url, bom_forecast_url, bom_forecast_
     return min_obs, min_forecast
 
 if __name__ == "__main__":
-    observed, forecast = get_min_observed_and_forecasted(
+    print get_min_temp_phrase_from_values(*get_min_observed_and_forecasted(
         conf.LOCAL_BOM_OBSERVATIONS_URL,
         conf.STATE_BOM_FORECAST_URL,
-        conf.LOCAL_BOM_FORECAST_AREA)
-    print "Yesterday's minimum: %s. Tonight's forecasted minimum: %s" % \
-          (observed, forecast)
+        conf.LOCAL_BOM_FORECAST_AREA))
+    # print get_min_temp_phrase_from_values(12, 0)
