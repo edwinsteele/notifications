@@ -236,7 +236,11 @@ def main(fdt, ldt, lateness_threshold_mins, send_notification, no_lights):
         logging.info("Not sending pushover notification")
 
     if not no_lights:
-        notifier.set_lamp_state(trains_are_running_late)
+        light_set_status = notifier.set_lamp_state(trains_are_running_late)
+        if light_set_status == notifier.LIGHT_SET_OK:
+            logging.debug("Light operations successful")
+        elif light_set_status == notifier.LIGHT_SET_FAILED_BRIDGE_COMMS:
+            logging.error("Unable to perform light operations - timeout to bridge")
     else:
         logging.debug("Not turning on lights because --no_lights cmdline param")
 
@@ -276,7 +280,7 @@ if __name__ == "__main__":
     logfile = getattr(conf, "LOGFILE", None)
 
     if args.verbose is None:
-        logging.basicConfig(level=logging.WARNING, filename=logfile)
+        logging.basicConfig(level=logging.WARNING)
     elif args.verbose == 1:
         logging.basicConfig(level=logging.INFO, filename=logfile)
     else:
