@@ -240,7 +240,15 @@ def main(fdt, ldt, lateness_threshold_mins, send_notification, no_lights):
         if light_set_status == notifier.LIGHT_SET_OK:
             logging.debug("Light operations successful")
         elif light_set_status == notifier.LIGHT_SET_FAILED_BRIDGE_COMMS:
-            logging.error("Unable to perform light operations - timeout to bridge")
+            logging.error("Unable to perform light operations -"
+                          " timeout to bridge")
+        elif light_set_status == notifier.LIGHT_SET_FAILED_NOT_REGISTERED:
+            logging.error("Unable to perform light operations -"
+                          " application not registered with bridge."
+                          " Press bridge button and try again.")
+        else:
+            logging.error("Unknown return code from set lamp state: %s",
+                          light_set_status)
     else:
         logging.debug("Not turning on lights because --no_lights cmdline param")
 

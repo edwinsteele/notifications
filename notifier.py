@@ -2,13 +2,14 @@ __author__ = 'esteele'
 
 import socket
 import conf
-from phue import Bridge, PhueRequestTimeout
+from phue import Bridge, PhueRegistrationException, PhueRequestTimeout
 from pushover import Client
 
 GREEN = 20389
 RED = 65535
-LIGHT_SET_OK=1
-LIGHT_SET_FAILED_BRIDGE_COMMS=2
+LIGHT_SET_OK = 1
+LIGHT_SET_FAILED_BRIDGE_COMMS = 2
+LIGHT_SET_FAILED_NOT_REGISTERED = 3
 
 
 def send_pushover_notification(message, title):
@@ -23,6 +24,8 @@ def set_lamp_state(is_late):
         return LIGHT_SET_FAILED_BRIDGE_COMMS
     except socket.error:
         return LIGHT_SET_FAILED_BRIDGE_COMMS
+    except PhueRegistrationException:
+        return LIGHT_SET_FAILED_NOT_REGISTERED
 
     b.set_light(conf.HUE_LIGHT_NAME, 'on', True)  # Make sure it's on
     b.set_light(conf.HUE_LIGHT_NAME, 'bri', 254)  # Max brightness
